@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cinematic WebGL experience with spatial storytelling">
+    <title>Cinematic WebGL Experience</title>
+    <link rel="stylesheet" href="styles-refactored.css">
+</head>
+<body>
+    <!-- WebGL Canvas - Full viewport background -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Content Overlay - Minimal DOM, maximum spatial focus -->
+    <div class="content-wrapper">
+        
+        <!-- Navigation - Minimal, elegant -->
+        <nav class="main-nav">
+            <div class="nav-logo">BRAND</div>
+            <ul class="nav-links">
+                <li><a href="#hero" data-scene="0">Home</a></li>
+                <li><a href="#philosophy" data-scene="1">Philosophy</a></li>
+                <li><a href="#services" data-scene="2">Services</a></li>
+                <li><a href="#contact" data-scene="3">Contact</a></li>
+            </ul>
+        </nav>
+
+        <!-- Scene 1: Hero Entry -->
+        <section class="scene-section" id="hero" data-scene="hero">
+            <div class="scene-content">
+                <h1 class="hero-title">
+                    <span class="title-line">Experience</span>
+                    <span class="title-line">Spatial</span>
+                    <span class="title-line">Storytelling</span>
+                </h1>
+                <p class="hero-subtitle">A journey through immersive 3D narrative</p>
+                <button class="cta-button">Begin Journey</button>
+            </div>
+            <div class="scroll-indicator parallax-layer">
+                <div class="scroll-line"></div>
+                <span>Scroll to explore</span>
+            </div>
+        </section>
+
+        <!-- Scene 2: Philosophy Depth -->
+        <section class="scene-section" id="philosophy" data-scene="philosophy">
+            <div class="scene-content">
+                <h2 class="section-title">Philosophy</h2>
+                <div class="philosophy-grid parallax-layer">
+                    <div class="philosophy-card">
+                        <h3>Spatial First</h3>
+                        <p>Every element exists in 3D space, creating depth and dimension beyond flat design.</p>
+                    </div>
+                    <div class="philosophy-card">
+                        <h3>Narrative Motion</h3>
+                        <p>Camera movement tells stories, guiding attention through authored journeys.</p>
+                    </div>
+                    <div class="philosophy-card">
+                        <h3>Organic Life</h3>
+                        <p>Subtle drift and momentum create experiences that feel alive, not mechanical.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scene 3: Services Constellation -->
+        <section class="scene-section" id="services" data-scene="services">
+            <div class="scene-content">
+                <h2 class="section-title">Services</h2>
+                <div class="services-grid parallax-layer">
+                    <div class="service-card" data-node="0">
+                        <h3>Creative Direction</h3>
+                        <p>Spatial design systems that push boundaries</p>
+                    </div>
+                    <div class="service-card" data-node="1">
+                        <h3>Technical Architecture</h3>
+                        <p>Performance-optimized WebGL experiences</p>
+                    </div>
+                    <div class="service-card" data-node="2">
+                        <h3>Brand Identity</h3>
+                        <p>Visual languages that define movements</p>
+                    </div>
+                    <div class="service-card" data-node="3">
+                        <h3>Animation Direction</h3>
+                        <p>Choreographed motion that tells stories</p>
+                    </div>
+                    <div class="service-card" data-node="4">
+                        <h3>Interactive Systems</h3>
+                        <p>Engagement models that feel natural</p>
+                    </div>
+                    <div class="service-card" data-node="5">
+                        <h3>Spatial Narrative</h3>
+                        <p>3D storytelling that immerses users</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scene 4: Contact Portal -->
+        <section class="scene-section" id="contact" data-scene="contact">
+            <div class="scene-content">
+                <h2 class="section-title">Connect</h2>
+                <div class="contact-content parallax-layer">
+                    <p class="contact-message">Ready to create something extraordinary?</p>
+                    <form class="contact-form">
+                        <input type="text" placeholder="Your name" required>
+                        <input type="email" placeholder="Your email" required>
+                        <textarea placeholder="Tell us about your vision" rows="5" required></textarea>
+                        <button type="submit" class="submit-button">Send Message</button>
+                    </form>
+                    <div class="contact-info">
+                        <a href="mailto:hello@example.com">hello@example.com</a>
+                        <div class="social-links">
+                            <a href="#" aria-label="Twitter">TW</a>
+                            <a href="#" aria-label="Instagram">IG</a>
+                            <a href="#" aria-label="LinkedIn">LI</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Loading Screen (fades out on init) -->
+    <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>Initializing experience...</p>
+    </div>
+
+    <!-- Performance Monitor (dev only) -->
+    <div class="performance-monitor" style="display: none;">
+        <div class="fps-counter">FPS: <span id="fps-value">60</span></div>
+        <div class="scene-indicator">Scene: <span id="scene-name">hero</span></div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        window.__APP_BOOTED__ = false;
+        setTimeout(() => {
+            if (window.__APP_BOOTED__) return;
+            const loading = document.querySelector('.loading-screen');
+            if (!loading) return;
+            const message = loading.querySelector('p');
+            if (message) {
+                message.textContent = 'Still loading. If opened via file://, run a local server (for example: python -m http.server 8080).';
+            }
+            loading.style.pointerEvents = 'auto';
+        }, 8000);
+    </script>
+    <script type="module">
+        import('./script-refactored.js?v=20260211d')
+            .catch((error) => {
+                console.error('[Bootstrap] Module load failed', error);
+                const loading = document.querySelector('.loading-screen');
+                if (!loading) return;
+                const message = loading.querySelector('p');
+                if (message) {
+                    message.textContent = `Module load failed: ${error?.message || 'Unknown error'}`;
+                }
+                loading.style.pointerEvents = 'auto';
+            });
+    </script>
+</body>
+</html>
