@@ -498,9 +498,10 @@ class CinematicExperience {
     async function loadMoonTextures() {
       const materialMaps = {};
       const discovered = [];
+      const moonBase = new URL('./assets/moon/', window.location.href);
 
       try {
-        const res = await fetch("/assets/moon/");
+        const res = await fetch(moonBase.href);
         if (res.ok) {
           const html = await res.text();
           const links = [...html.matchAll(/href=["']([^"']+\.(?:png|jpe?g|webp))["']/gi)]
@@ -516,14 +517,14 @@ class CinematicExperience {
       for (const file of discovered) {
         const type = classifyMap(file);
         if (!type || materialMaps[type]) continue;
-        const tex = await loadTextureSafe(`/assets/moon/${file}`);
+        const tex = await loadTextureSafe(new URL(file, moonBase).href);
         if (tex) materialMaps[type] = tex;
       }
 
       for (const key of files) {
         if (materialMaps[key]) continue;
         for (const ext of extList) {
-          const tex = await loadTextureSafe(`/assets/moon/${key}.${ext}`);
+          const tex = await loadTextureSafe(new URL(`${key}.${ext}`, moonBase).href);
           if (tex) {
             materialMaps[key] = tex;
             break;
