@@ -41,12 +41,12 @@ export class SceneManager {
         },
         objects: [], // Populated by GeometryLibrary
         lighting: {
-          ambient: 0x111111,
-          key: { color: 0x7B2CBF, intensity: 1.2 },
+          ambient: 0x1a0a2e, // Deep purple space
+          key: { color: 0xFF1493, intensity: 1.4 }, // Hot pink shark glow
         },
         shader: {
-          colorA: [0.48, 0.17, 0.75], // #7B2CBF
-          colorB: [0.2, 0.1, 0.3],
+          colorA: [1.0, 0.08, 0.58], // Hot pink #FF1493
+          colorB: [0.08, 0.04, 0.18], // Deep purple space
           frequency: 0.8,
         }
       },
@@ -61,12 +61,12 @@ export class SceneManager {
         },
         objects: [],
         lighting: {
-          ambient: 0x0a0a0a,
-          key: { color: 0x9D4EDD, intensity: 0.9 },
+          ambient: 0x16001e, // Deep purple
+          key: { color: 0x9D4EDD, intensity: 1.1 }, // Purple nebula
         },
         shader: {
-          colorA: [0.62, 0.31, 0.87],
-          colorB: [0.1, 0.05, 0.15],
+          colorA: [0.62, 0.31, 0.87], // Purple #9D4EDD
+          colorB: [0.09, 0.00, 0.12], // Dark purple
           frequency: 1.2,
         }
       },
@@ -81,12 +81,12 @@ export class SceneManager {
         },
         objects: [],
         lighting: {
-          ambient: 0x080808,
-          key: { color: 0xC77DFF, intensity: 0.8 },
+          ambient: 0x1a0520, // Deep purple-pink
+          key: { color: 0xFF69B4, intensity: 0.95 }, // Light pink
         },
         shader: {
-          colorA: [0.78, 0.49, 1.0],
-          colorB: [0.15, 0.05, 0.2],
+          colorA: [1.0, 0.41, 0.71], // Light pink #FF69B4
+          colorB: [0.10, 0.02, 0.13], // Deep space
           frequency: 1.5,
         }
       },
@@ -101,12 +101,12 @@ export class SceneManager {
         },
         objects: [],
         lighting: {
-          ambient: 0x060606,
-          key: { color: 0xE0AAFF, intensity: 0.7 },
+          ambient: 0x0d0415, // Deep purple-black
+          key: { color: 0x8B5CF6, intensity: 0.9 }, // Bright purple nebula
         },
         shader: {
-          colorA: [0.88, 0.67, 1.0],
-          colorB: [0.2, 0.1, 0.25],
+          colorA: [0.55, 0.36, 0.96], // Bright purple #8B5CF6
+          colorB: [0.05, 0.02, 0.08], // Deep purple space
           frequency: 2.0,
         }
       }

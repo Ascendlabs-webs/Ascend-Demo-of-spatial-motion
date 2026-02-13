@@ -9,13 +9,14 @@
 </head>
 <body>
     <!-- WebGL Canvas - Full viewport background -->
-    <canvas id="webgl-canvas"></canvas>
+    <canvas id="webgl-canvas" aria-hidden="true"></canvas>
 
     <!-- Content Overlay - Minimal DOM, maximum spatial focus -->
-    <div class="content-wrapper">
+    <main class="content-wrapper" id="main-content">
         
         <!-- Navigation - Minimal, elegant -->
-        <nav class="main-nav">
+        <header>
+        <nav class="main-nav" aria-label="Primary navigation">
             <div class="nav-logo">BRAND</div>
             <ul class="nav-links">
                 <li><a href="#hero" data-scene="0">Home</a></li>
@@ -24,17 +25,19 @@
                 <li><a href="#contact" data-scene="3">Contact</a></li>
             </ul>
         </nav>
+        </header>
 
         <!-- Scene 1: Hero Entry -->
         <section class="scene-section" id="hero" data-scene="hero">
             <div class="scene-content">
+                <p class="hero-brand" aria-label="Ascendlabs">Ascendlabs</p>
                 <h1 class="hero-title">
                     <span class="title-line">Experience</span>
                     <span class="title-line">Spatial</span>
                     <span class="title-line">Storytelling</span>
                 </h1>
                 <p class="hero-subtitle">A journey through immersive 3D narrative</p>
-                <button class="cta-button">Begin Journey</button>
+                <button class="cta-button" type="button">Begin Journey</button>
             </div>
             <div class="scroll-indicator parallax-layer">
                 <div class="scroll-line"></div>
@@ -101,11 +104,25 @@
             <div class="scene-content">
                 <h2 class="section-title">Connect</h2>
                 <div class="contact-content parallax-layer">
+                    <div class="contact-ambient" aria-hidden="true"></div>
+                    <div class="contact-status-row" aria-label="Availability">
+                        <span class="status-pill">Replies in 24h</span>
+                        <span class="status-pill">Open for projects</span>
+                    </div>
                     <p class="contact-message">Ready to create something extraordinary?</p>
-                    <form class="contact-form">
-                        <input type="text" placeholder="Your name" required>
-                        <input type="email" placeholder="Your email" required>
-                        <textarea placeholder="Tell us about your vision" rows="5" required></textarea>
+                    <div class="contact-intent-chips" role="group" aria-label="Quick message type">
+                        <button type="button" class="intent-chip" data-intent="project">Project</button>
+                        <button type="button" class="intent-chip" data-intent="partnership">Partnership</button>
+                        <button type="button" class="intent-chip" data-intent="hiring">Hiring</button>
+                        <button type="button" class="intent-chip" data-intent="other">Other</button>
+                    </div>
+                    <form class="contact-form" aria-label="Contact form">
+                        <label for="contact-name" class="sr-only">Your name</label>
+                        <input id="contact-name" name="name" type="text" autocomplete="name" placeholder="Your name" required>
+                        <label for="contact-email" class="sr-only">Your email</label>
+                        <input id="contact-email" name="email" type="email" autocomplete="email" placeholder="Your email" required>
+                        <label for="contact-message" class="sr-only">Tell us about your vision</label>
+                        <textarea id="contact-message" name="message" placeholder="Tell us about your vision" rows="5" required></textarea>
                         <button type="submit" class="submit-button">Send Message</button>
                     </form>
                     <div class="contact-info">
@@ -120,10 +137,10 @@
             </div>
         </section>
 
-    </div>
+    </main>
 
     <!-- Loading Screen (fades out on init) -->
-    <div class="loading-screen">
+    <div class="loading-screen" role="status" aria-live="polite">
         <div class="loading-spinner"></div>
         <p>Initializing experience...</p>
     </div>
@@ -149,7 +166,7 @@
         }, 8000);
     </script>
     <script type="module">
-        import('./script-refactored.js?v=20260211d')
+        import('./script-refactored.js?v=20260213f')
             .catch((error) => {
                 console.error('[Bootstrap] Module load failed', error);
                 const loading = document.querySelector('.loading-screen');
@@ -161,5 +178,8 @@
                 loading.style.pointerEvents = 'auto';
             });
     </script>
+    <noscript>
+        <p class="sr-only">This experience requires JavaScript enabled.</p>
+    </noscript>
 </body>
 </html>

@@ -53,6 +53,7 @@ export class CameraDirector {
       shakeEnabled: false, // Camera shake toggle
       shakeAmount: 0,
     };
+    this.handleMouseMove = this.handleMouseMove.bind(this);
 
     this.setupEventListeners();
   }
@@ -61,17 +62,19 @@ export class CameraDirector {
    * Setup mouse tracking for parallax
    */
   setupEventListeners() {
-    document.addEventListener('mousemove', (e) => {
-      const x = (e.clientX / window.innerWidth) * 2 - 1;
-      const y = -(e.clientY / window.innerHeight) * 2 + 1;
-      
-      // Calculate velocity for momentum
-      this.mouseVelocity.x = x - this.mouse.x;
-      this.mouseVelocity.y = y - this.mouse.y;
-      
-      this.mouse.x = x;
-      this.mouse.y = y;
-    });
+    document.addEventListener('mousemove', this.handleMouseMove, { passive: true });
+  }
+
+  handleMouseMove(e) {
+    const x = (e.clientX / window.innerWidth) * 2 - 1;
+    const y = -(e.clientY / window.innerHeight) * 2 + 1;
+    
+    // Calculate velocity for momentum
+    this.mouseVelocity.x = x - this.mouse.x;
+    this.mouseVelocity.y = y - this.mouse.y;
+    
+    this.mouse.x = x;
+    this.mouse.y = y;
   }
 
   /**
@@ -146,7 +149,7 @@ export class CameraDirector {
    * Apply organic drift using perlin-like motion
    */
   applyDrift(deltaTime) {
-    this.driftTime += deltaTime * this.driftSpeed;
+    this.driftTime += deltaTime * this.driftSpeed * 60;
     
     // Create organic motion using multiple sine waves at different frequencies
     this.drift.x = Math.sin(this.driftTime * 1.3) * 0.5 + Math.sin(this.driftTime * 2.7) * 0.3;
@@ -298,6 +301,6 @@ export class CameraDirector {
    * Cleanup
    */
   dispose() {
-    // Remove event listeners if needed
+    document.removeEventListener('mousemove', this.handleMouseMove);
   }
 }

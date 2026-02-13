@@ -15,7 +15,7 @@
 import * as THREE from './vendor/three.module.js';
 import { SceneManager } from './SceneManager.js';
 import { CameraDirector } from './CameraDirector.js';
-import { GeometryLibrary } from './GeometryLibrary.js';
+import { GeometryLibrary } from './GeometryLibrary.js?v=20260213b';
 import { TransitionEngine } from './TransitionEngine.js';
 import { EffectComposer } from './vendor/postprocessing/EffectComposer.js';
 import { RenderPass } from './vendor/postprocessing/RenderPass.js';
@@ -56,6 +56,12 @@ class CinematicExperience {
     this.microMotionMeshes = [];
     this.raycastAccumulator = 0;
     this.raycastInterval = 0.1;
+    this.environmentTexture = null;
+    this.environmentRT = null;
+    this.passes = null;
+    this.moon = null;
+    this.moonTextures = [];
+    this.moonLoadToken = 0;
     
     // Animation state
     this.clock = new THREE.Clock();
@@ -66,9 +72,19 @@ class CinematicExperience {
     this.frameCount = 0;
     this.fps = 60;
     this.lastFpsUpdate = 0;
+    this.isDisposed = false;
+    this.rafId = null;
     
     // Quality settings
     this.quality = this.detectQuality();
+    this.maxPixelRatio = this.quality === 'high' ? 1.5 : 1;
+    this.lastViewport = { width: 0, height: 0, pixelRatio: 0 };
+    this.scrollTicking = false;
+    this.resizeRafId = 0;
+    this.handleResize = this.handleResize.bind(this);
+    this.handleScroll = this.handleScroll.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this);
+    this.animate = this.animate.bind(this);
     
     this.init();
   }
@@ -131,13 +147,14 @@ class CinematicExperience {
     this.setupScrollControl();
     this.setupTransitionCallbacks();
     this.setupPremiumUI();
+    this.setupContactEnhancements();
     this.setupRaycastInteraction();
     
     // Start render loop
     this.animate();
     
     // Setup responsive handling
-    window.addEventListener('resize', () => this.handleResize());
+    window.addEventListener('resize', this.handleResize, { passive: true });
     
     window.__APP_BOOTED__ = true;
     const loading = document.querySelector('.loading-screen');
@@ -157,6 +174,9 @@ class CinematicExperience {
   setupThreeJS() {
     // Canvas
     this.canvas = document.getElementById('webgl-canvas');
+    if (!this.canvas) {
+      throw new Error('Missing #webgl-canvas element');
+    }
     
     // Scene
     this.scene = new THREE.Scene();
@@ -180,8 +200,7 @@ class CinematicExperience {
     });
     
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    const maxPixelRatio = this.quality === 'high' ? 1.5 : 1;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio));
     this.renderer.physicallyCorrectLights = true;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.35;
@@ -392,6 +411,7 @@ class CinematicExperience {
     if (this.composer && bloomPass) this.composer.addPass(bloomPass);
     if (this.composer && smaaPass) this.composer.addPass(smaaPass);
     if (this.composer && gammaPass) this.composer.addPass(gammaPass);
+    this.passes = { bloomPass, smaaPass, gammaPass };
   }
 
   /**
@@ -434,13 +454,17 @@ class CinematicExperience {
     this.scene.add(this.volumetricBeam);
 
     const depthParticleCount = this.quality === 'high' ? 120 : this.quality === 'medium' ? 70 : 35;
+    const depthParticleMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const depthParticleGeometries = [
+      new THREE.SphereGeometry(0.02, 6, 6),
+      new THREE.SphereGeometry(0.0275, 6, 6),
+      new THREE.SphereGeometry(0.035, 6, 6),
+    ];
     for (let l = 0; l < 3; l++) {
       const g = new THREE.Group();
       for (let i = 0; i < depthParticleCount; i++) {
-        const p = new THREE.Mesh(
-          new THREE.SphereGeometry(0.02 + Math.random() * 0.015, 6, 6),
-          new THREE.MeshBasicMaterial({ color: 0xffffff })
-        );
+        const geometryIndex = Math.floor(Math.random() * depthParticleGeometries.length);
+        const p = new THREE.Mesh(depthParticleGeometries[geometryIndex], depthParticleMaterial);
         p.position.set(
           Math.random() * 30 - 15,
           Math.random() * 30 - 15,
@@ -462,8 +486,7 @@ class CinematicExperience {
 
   createMoon() {
     const texLoader = new THREE.TextureLoader();
-
-    const maps = {};
+    const loadToken = ++this.moonLoadToken;
 
     const files = [
       "albedo", "color", "diff", "basecolor",
@@ -536,7 +559,10 @@ class CinematicExperience {
     }
 
     loadMoonTextures().then((t) => {
-      Object.assign(maps, t);
+      if (this.isDisposed || loadToken !== this.moonLoadToken) {
+        Object.values(t).forEach((texture) => texture?.dispose?.());
+        return;
+      }
 
       const mat = new THREE.MeshStandardMaterial({
         map: t.albedo || t.color || t.basecolor || t.diff,
@@ -556,6 +582,8 @@ class CinematicExperience {
 
       mesh.position.set(6, -2, -15);
       this.scene.add(mesh);
+      this.moon = mesh;
+      this.moonTextures = Object.values(t).filter(Boolean);
     });
   }
 
@@ -563,22 +591,11 @@ class CinematicExperience {
    * Setup scroll control with smooth interpolation
    */
   setupScrollControl() {
-    let ticking = false;
-    
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-          this.targetScrollProgress = window.scrollY / scrollHeight;
-          ticking = false;
-        });
-        ticking = true;
-      }
-    });
+    window.addEventListener('scroll', this.handleScroll, { passive: true });
     
     // Initialize scroll position
-    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-    this.targetScrollProgress = window.scrollY / scrollHeight;
+    const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    this.targetScrollProgress = THREE.MathUtils.clamp(window.scrollY / scrollHeight, 0, 1);
     this.scrollProgress = this.targetScrollProgress;
   }
 
@@ -592,7 +609,7 @@ class CinematicExperience {
     });
     
     this.transitionEngine.on('onMorph', (fromScene, toScene, index) => {
-      console.log(`[Transition Event] Morphing: ${fromScene.name} → ${toScene?.name}`);
+      console.log(`[Transition Event] Morphing: ${fromScene.name} -> ${toScene?.name}`);
       
       // Update lighting for next scene
       if (toScene) {
@@ -628,14 +645,36 @@ class CinematicExperience {
     });
   }
 
+  setupContactEnhancements() {
+    const chips = document.querySelectorAll('.intent-chip');
+    const textarea = document.getElementById('contact-message');
+    if (!chips.length || !textarea) return;
+
+    const intentTemplates = {
+      project: "I'm reaching out about a project. Timeline: [insert timeline]. Scope: [insert scope].",
+      partnership: "I'd like to discuss a partnership opportunity. Goals: [insert goals].",
+      hiring: "I'm hiring and would like to discuss your availability for a role/project.",
+      other: "I'd like to connect about [insert topic].",
+    };
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((item) => item.classList.remove('is-active'));
+        chip.classList.add('is-active');
+        const intent = chip.dataset.intent;
+        const template = intentTemplates[intent] || '';
+        textarea.value = template;
+        textarea.focus();
+      });
+    });
+  }
+
   setupRaycastInteraction() {
-    window.addEventListener('mousemove', (e) => {
-      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    }, { passive: true });
+    window.addEventListener('mousemove', this.handleMouseMove, { passive: true });
   }
 
   collectInteractionTargets() {
+    this.interactiveObjects = [];
     this.microMotionMeshes = [];
     this.scene.traverse((obj) => {
       if (obj.isMesh && obj !== this.backgroundMesh && obj !== this.volumetricBeam) {
@@ -675,11 +714,12 @@ class CinematicExperience {
    * Main animation loop
    */
   animate() {
-    requestAnimationFrame(() => this.animate());
+    if (this.isDisposed) return;
+    this.rafId = requestAnimationFrame(this.animate);
     
     let deltaTime = this.clock.getDelta();
     deltaTime *= 0.92;
-    const elapsedTime = this.clock.getElapsedTime();
+    const elapsedTime = this.clock.elapsedTime;
     
     // Smooth scroll interpolation
     this.scrollProgress += (this.targetScrollProgress - this.scrollProgress) * 0.065;
@@ -719,10 +759,11 @@ class CinematicExperience {
         hits[0].object.rotation.y += 0.03;
       }
     }
-    this.depthParallaxGroups.forEach((o) => {
-      o.position.z += deltaTime * (o.userData.depth + 1) * 0.7;
-      if (o.position.z > 8) o.position.z = -40;
-    });
+    for (let i = 0; i < this.depthParallaxGroups.length; i++) {
+      const group = this.depthParallaxGroups[i];
+      group.position.z += deltaTime * (group.userData.depth + 1) * 0.7;
+      if (group.position.z > 8) group.position.z = -40;
+    }
     
     // Update background shader
     if (this.backgroundMesh) {
@@ -760,11 +801,6 @@ class CinematicExperience {
       this.fps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
       this.frameCount = 0;
       this.lastFpsUpdate = now;
-      
-      // Quality adjustment based on FPS (optional)
-      if (this.fps < 30 && this.quality !== 'low') {
-        console.warn('[Performance] Low FPS detected, consider reducing quality');
-      }
     }
   }
 
@@ -772,15 +808,37 @@ class CinematicExperience {
    * Handle window resize
    */
   handleResize() {
+    if (this.resizeRafId) return;
+    this.resizeRafId = window.requestAnimationFrame(() => {
+      this.resizeRafId = 0;
+      this.applyResize();
+    });
+  }
+
+  applyResize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const pixelRatio = Math.min(window.devicePixelRatio, this.maxPixelRatio);
+    const viewportUnchanged =
+      this.lastViewport.width === width &&
+      this.lastViewport.height === height &&
+      this.lastViewport.pixelRatio === pixelRatio;
+    if (viewportUnchanged) return;
+    this.lastViewport = { width, height, pixelRatio };
     
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     
+    this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height);
     if (this.composer) {
       this.composer.setSize(width, height);
+    }
+    if (this.passes?.smaaPass?.setSize) {
+      this.passes.smaaPass.setSize(width * pixelRatio, height * pixelRatio);
+    }
+    if (this.ssrPass?.setSize) {
+      this.ssrPass.setSize(Math.floor(width * 0.75), Math.floor(height * 0.75));
     }
     
     if (this.backgroundMesh) {
@@ -788,20 +846,55 @@ class CinematicExperience {
     }
   }
 
+  handleScroll() {
+    if (this.scrollTicking) return;
+    this.scrollTicking = true;
+    window.requestAnimationFrame(() => {
+      const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      this.targetScrollProgress = THREE.MathUtils.clamp(window.scrollY / scrollHeight, 0, 1);
+      this.scrollTicking = false;
+    });
+  }
+
+  handleMouseMove(e) {
+    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  }
+
   /**
    * Dispose and cleanup
    */
   dispose() {
+    this.isDisposed = true;
     console.log('[Cleanup] Disposing resources');
     
     if (this.geometryLibrary) this.geometryLibrary.dispose();
     if (this.cameraDirector) this.cameraDirector.dispose();
+    if (this.transitionEngine) this.transitionEngine.reset();
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (this.resizeRafId) {
+      cancelAnimationFrame(this.resizeRafId);
+      this.resizeRafId = 0;
+    }
     
     if (this.renderer) {
       this.renderer.dispose();
     }
     if (this.composer) {
       this.composer.dispose();
+    }
+    if (this.backgroundMesh?.geometry) this.backgroundMesh.geometry.dispose();
+    if (this.backgroundMesh?.material) this.backgroundMesh.material.dispose();
+    if (this.backgroundScene) {
+      this.backgroundScene.traverse((obj) => {
+        if (obj.isMesh && obj !== this.backgroundMesh) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) obj.material.dispose();
+        }
+      });
     }
     if (this.environmentTexture) {
       this.environmentTexture.dispose();
@@ -813,14 +906,31 @@ class CinematicExperience {
     if (this.foregroundSilhouette?.material) this.foregroundSilhouette.material.dispose();
     if (this.volumetricBeam?.geometry) this.volumetricBeam.geometry.dispose();
     if (this.volumetricBeam?.material) this.volumetricBeam.material.dispose();
+    const disposedGeometries = new Set();
+    const disposedMaterials = new Set();
     this.depthParallaxGroups.forEach((group) => {
       group.traverse((obj) => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) obj.material.dispose();
+        if (obj.geometry && !disposedGeometries.has(obj.geometry)) {
+          disposedGeometries.add(obj.geometry);
+          obj.geometry.dispose();
+        }
+        if (obj.material && !disposedMaterials.has(obj.material)) {
+          disposedMaterials.add(obj.material);
+          obj.material.dispose();
+        }
       });
     });
+    if (this.moon) {
+      if (this.moon.geometry) this.moon.geometry.dispose();
+      if (this.moon.material) this.moon.material.dispose();
+    }
+    this.moonTextures.forEach((texture) => texture.dispose());
+    this.moonTextures = [];
+    this.moonLoadToken++;
     
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('scroll', this.handleScroll);
+    window.removeEventListener('mousemove', this.handleMouseMove);
   }
 }
 
